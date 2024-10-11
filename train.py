@@ -26,7 +26,7 @@ def train(batch_size: int=64,
           checkpoint_path: str=None):
     set_seed(random.randint(0, 2**32-1)) if seed == -1 else set_seed(seed)
 
-    train_dataset = datasets.MNIST(root='./data', train=True, download=False,transform=transforms.ToTensor())
+    train_dataset = datasets.MNIST(root='./data', train=True, download=True,transform=transforms.ToTensor())
     #sub_dataset = Subset(train_dataset, list(range(1024)))
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=4)
 
@@ -40,6 +40,7 @@ def train(batch_size: int=64,
         ema.load_state_dict(checkpoint['ema'])
         optimizer.load_state_dict(checkpoint['optimizer'])
     criterion = nn.MSELoss(reduction='mean')
+    losses=[]
 
     for i in range(num_epochs):
         total_loss = 0
@@ -54,6 +55,7 @@ def train(batch_size: int=64,
             optimizer.zero_grad()
             loss = criterion(output, e)
             total_loss += loss.item()
+            losses.append(total_loss)
             loss.backward()
             optimizer.step()
             ema.update(model)
@@ -63,8 +65,8 @@ def train(batch_size: int=64,
         'weights': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'ema': ema.state_dict()
-    }
-    torch.save(checkpoint, 'checkpoints/ddpm_checkpoint2')
+    }    
+    return model, losses,checkpoint
 
 def inference(checkpoint_path: str=None,
               num_time_steps: int=1000,
@@ -116,4 +118,9 @@ def main():
     inference('checkpoints/ddpm_checkpoint2')
 
 if __name__ == '__main__':
-    main()
+    model, losses, checkpoint = train()
+    torch.save(checkpoint, 'checkpoints/ddpm_checkpoint2')
+    import matplotlib.pyplot as plt
+    plt.plot(losses)
+    plt.ylabel("Loss")
+    plt.show()
